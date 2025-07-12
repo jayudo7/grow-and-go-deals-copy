@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Leaf, Facebook, Twitter, Instagram, Mail } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const Footer = () => {
   return (
@@ -10,10 +11,10 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 py-12">
           {/* Brand Section */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
+            <Link to="/" className="flex items-center space-x-2">
               <Leaf className="h-8 w-8 text-accent" />
               <span className="text-2xl font-bold">FreshMarket</span>
-            </div>
+            </Link>
             <p className="text-primary-foreground/80 leading-relaxed">
               Connecting farmers and consumers for fresh, sustainable, and local produce. 
               Building a healthier future, one harvest at a time.
@@ -35,13 +36,20 @@ const Footer = () => {
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-accent">Quick Links</h3>
             <div className="space-y-2">
-              {["Browse Products", "Sell Produce", "About Us", "Contact", "Help Center"].map((link) => (
+              {[
+                { label: "Browse Products", path: "/marketplace" },
+                { label: "Sell Produce", path: "/sell" },
+                { label: "About Us", path: "/about" },
+                { label: "Contact", path: "/contact" },
+                { label: "Help Center", path: "/help" }
+              ].map(({ label, path }) => (
                 <Button
-                  key={link}
+                  key={label}
                   variant="ghost"
                   className="h-auto p-0 text-primary-foreground/80 hover:text-accent justify-start"
+                  asChild
                 >
-                  {link}
+                  <Link to={path}>{label}</Link>
                 </Button>
               ))}
             </div>

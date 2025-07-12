@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Leaf, ShoppingBasket } from "lucide-react";
+import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-produce.jpg";
 
 const Hero = () => {
@@ -29,15 +30,19 @@ const Hero = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" variant="fresh" className="text-lg px-8">
-                <ShoppingBasket className="h-5 w-5" />
-                Start Shopping
-                <ArrowRight className="h-5 w-5" />
+              <Button size="lg" variant="fresh" className="text-lg px-8" asChild>
+                <Link to="/marketplace">
+                  <ShoppingBasket className="h-5 w-5" />
+                  Start Shopping
+                  <ArrowRight className="h-5 w-5" />
+                </Link>
               </Button>
               
-              <Button size="lg" variant="harvest" className="text-lg px-8">
-                <Leaf className="h-5 w-5" />
-                Sell Your Produce
+              <Button size="lg" variant="harvest" className="text-lg px-8" asChild>
+                <Link to="/sell">
+                  <Leaf className="h-5 w-5" />
+                  Sell Your Produce
+                </Link>
               </Button>
             </div>
 
