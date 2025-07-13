@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, ShoppingCart, User, Leaf } from "lucide-react";
+import { Search, ShoppingCart, User, Leaf, Heart } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Header = () => {
@@ -33,8 +33,15 @@ const Header = () => {
             <Button variant="ghost" size="sm" asChild>
               <Link to="/marketplace">Buy</Link>
             </Button>
-            <Button variant="ghost" size="icon">
-              <ShoppingCart className="h-5 w-5" />
+            <Button variant="ghost" size="icon" asChild>
+              <Link to="/favorites">
+                <Heart className="h-5 w-5" />
+              </Link>
+            </Button>
+            <Button variant="ghost" size="icon" asChild>
+              <Link to="/cart">
+                <ShoppingCart className="h-5 w-5" />
+              </Link>
             </Button>
             <Button variant="fresh" size="sm" asChild>
               <Link to="/signin">
