@@ -8,9 +8,9 @@ const Footer = () => {
     <footer className="bg-primary text-primary-foreground">
       <div className="container mx-auto px-4">
         {/* Main Footer Content */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 py-16">
           {/* Brand Section */}
-          <div className="space-y-4">
+          <div className="space-y-6">
             <Link to="/" className="flex items-center space-x-2">
               <Leaf className="h-8 w-8 text-accent" />
               <span className="text-2xl font-bold">FreshMarket</span>
@@ -19,7 +19,7 @@ const Footer = () => {
               Connecting farmers and consumers for fresh, sustainable, and local produce. 
               Building a healthier future, one harvest at a time.
             </p>
-            <div className="flex space-x-3">
+            <div className="flex space-x-4 mt-6">
               <Button variant="ghost" size="icon" className="text-primary-foreground hover:text-accent">
                 <Facebook className="h-5 w-5" />
               </Button>
@@ -33,13 +33,12 @@ const Footer = () => {
           </div>
 
           {/* Quick Links */}
-          <div className="space-y-4">
+          <div className="space-y-6">
             <h3 className="text-lg font-semibold text-accent">Quick Links</h3>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {[
                 { label: "Browse Products", path: "/marketplace" },
                 { label: "Sell Produce", path: "/sell" },
-                { label: "About Us", path: "/about" },
                 { label: "Contact", path: "/contact" },
                 { label: "Help Center", path: "/help" }
               ].map(({ label, path }) => (
@@ -56,9 +55,9 @@ const Footer = () => {
           </div>
 
           {/* Categories */}
-          <div className="space-y-4">
+          <div className="space-y-6">
             <h3 className="text-lg font-semibold text-accent">Categories</h3>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {["Fresh Fruits", "Vegetables", "Grains", "Dairy", "Herbs", "Organic"].map((category) => (
                 <Button
                   key={category}
@@ -72,12 +71,12 @@ const Footer = () => {
           </div>
 
           {/* Newsletter */}
-          <div className="space-y-4">
+          <div className="space-y-6">
             <h3 className="text-lg font-semibold text-accent">Stay Updated</h3>
-            <p className="text-primary-foreground/80 text-sm">
+            <p className="text-primary-foreground/80 text-sm leading-relaxed">
               Get the latest updates on fresh produce and seasonal offers.
             </p>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="flex gap-2">
                 <Input
                   placeholder="Enter your email"
@@ -95,12 +94,12 @@ const Footer = () => {
         </div>
 
         {/* Bottom Footer */}
-        <div className="border-t border-primary-foreground/20 py-6">
+        <div className="border-t border-primary-foreground/20 py-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-primary-foreground/80">
               © 2024 FreshMarket. All rights reserved.
             </p>
-            <div className="flex gap-6 text-sm">
+            <div className="flex gap-8 text-sm">
               <Button variant="ghost" className="h-auto p-0 text-primary-foreground/80 hover:text-accent">
                 Privacy Policy
               </Button>

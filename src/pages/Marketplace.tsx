@@ -1,12 +1,11 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Filter, Star, MapPin, ShoppingCart, Grid3X3, List } from "lucide-react";
+import { Search, Filter, Grid3X3, List } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Link } from "react-router-dom";
+import ProductCard from "@/components/ProductCard";
+import { useState, useEffect } from "react";
 
 const products = [
   {
@@ -21,7 +20,8 @@ const products = [
     image: "🍅",
     badge: "Organic",
     badgeColor: "bg-primary",
-    category: "vegetables"
+    category: "vegetables",
+    description: "Fresh, vine-ripened organic tomatoes bursting with flavor. Perfect for salads, sauces, and cooking."
   },
   {
     id: 2,
@@ -35,7 +35,8 @@ const products = [
     image: "🥕",
     badge: "Local",
     badgeColor: "bg-accent",
-    category: "vegetables"
+    category: "vegetables",
+    description: "Crisp, sweet carrots harvested fresh from local organic farms. Great for snacking and cooking."
   },
   {
     id: 3,
@@ -49,7 +50,8 @@ const products = [
     image: "🌽",
     badge: "Fresh",
     badgeColor: "bg-secondary-warm",
-    category: "vegetables"
+    category: "vegetables",
+    description: "Sweet, juicy corn picked at peak freshness. Perfect for grilling, boiling, or adding to summer dishes."
   },
   {
     id: 4,
@@ -63,7 +65,8 @@ const products = [
     image: "🍓",
     badge: "Sweet",
     badgeColor: "bg-red-500",
-    category: "fruits"
+    category: "fruits",
+    description: "Plump, sweet strawberries picked at peak ripeness. Perfect for desserts, smoothies, or eating fresh."
   },
   {
     id: 5,
@@ -77,7 +80,8 @@ const products = [
     image: "🍎",
     badge: "Crisp",
     badgeColor: "bg-red-600",
-    category: "fruits"
+    category: "fruits",
+    description: "Crisp, tart apples perfect for snacking, baking, or making fresh apple cider."
   },
   {
     id: 6,
@@ -91,7 +95,8 @@ const products = [
     image: "🍌",
     badge: "Tropical",
     badgeColor: "bg-yellow-500",
-    category: "fruits"
+    category: "fruits",
+    description: "Sweet, ripe bananas perfect for smoothies, baking, or a healthy snack on the go."
   },
   {
     id: 7,
@@ -105,7 +110,8 @@ const products = [
     image: "🌾",
     badge: "Organic",
     badgeColor: "bg-primary",
-    category: "grains"
+    category: "grains",
+    description: "Premium organic wheat flour, stone-ground for the best flavor and nutrition."
   },
   {
     id: 8,
@@ -119,11 +125,28 @@ const products = [
     image: "🥛",
     badge: "Fresh",
     badgeColor: "bg-blue-500",
-    category: "dairy"
+    category: "dairy",
+    description: "Fresh, creamy milk from grass-fed cows. Rich in nutrients and perfect for drinking or cooking."
   }
 ];
 
 const Marketplace = () => {
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  // Load view preference from localStorage
+  useEffect(() => {
+    const savedViewMode = localStorage.getItem('marketplace-view-mode') as 'grid' | 'list';
+    if (savedViewMode) {
+      setViewMode(savedViewMode);
+    }
+  }, []);
+
+  // Save view preference to localStorage
+  const handleViewModeChange = (mode: 'grid' | 'list') => {
+    setViewMode(mode);
+    localStorage.setItem('marketplace-view-mode', mode);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -173,70 +196,35 @@ const Marketplace = () => {
             Showing {products.length} products
           </p>
           <div className="flex gap-2">
-            <Button variant="outline" size="icon">
+            <Button 
+              variant={viewMode === 'grid' ? "default" : "outline"} 
+              size="icon"
+              onClick={() => handleViewModeChange('grid')}
+            >
               <Grid3X3 className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon">
+            <Button 
+              variant={viewMode === 'list' ? "default" : "outline"} 
+              size="icon"
+              onClick={() => handleViewModeChange('list')}
+            >
               <List className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {/* Products Display */}
+        <div className={`transition-all duration-300 ${
+          viewMode === 'grid' 
+            ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' 
+            : 'space-y-4'
+        }`}>
           {products.map((product) => (
-            <Card key={product.id} className="group hover:shadow-lg transition-all duration-300 border-border bg-gradient-card">
-              <CardContent className="p-4">
-                {/* Product Image */}
-                <div className="relative mb-4">
-                  <div className="aspect-square bg-muted/30 rounded-lg flex items-center justify-center text-6xl mb-3">
-                    {product.image}
-                  </div>
-                  <Badge className={`absolute top-2 left-2 ${product.badgeColor} text-white`}>
-                    {product.badge}
-                  </Badge>
-                </div>
-
-                {/* Product Info */}
-                <div className="space-y-3">
-                  <div>
-                    <Link to={`/product/${product.id}`}>
-                      <h3 className="text-lg font-semibold text-card-foreground group-hover:text-primary transition-colors cursor-pointer">
-                        {product.name}
-                      </h3>
-                    </Link>
-                    <div className="flex items-center gap-2 mt-1">
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 text-accent fill-current" />
-                        <span className="text-sm font-medium">{product.rating}</span>
-                      </div>
-                      <span className="text-sm text-muted-foreground">
-                        ({product.reviews} reviews)
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4" />
-                    <span>{product.farmer} • {product.location}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-2xl font-bold text-foreground">{product.price}</span>
-                      <span className="text-sm text-muted-foreground ml-1">{product.unit}</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-
-              <div className="p-4 pt-0">
-                <Button className="w-full" variant="fresh">
-                  <ShoppingCart className="h-4 w-4" />
-                  Add to Cart
-                </Button>
-              </div>
-            </Card>
+            <ProductCard 
+              key={product.id} 
+              product={product} 
+              viewMode={viewMode}
+            />
           ))}
         </div>
 
