@@ -6,6 +6,9 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useProducts } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
 
 const products = [
   {
@@ -132,6 +135,46 @@ const products = [
 
 const Marketplace = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [searchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+  const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'all');
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
+  
+  const { fetchProducts } = useProducts();
+  const { categories } = useCategories();
+
+  const loadProducts = async (reset = false) => {
+    setLoading(true);
+    const currentOffset = reset ? 0 : offset;
+    
+    const filters = {
+      search: searchTerm || undefined,
+      category: selectedCategory !== 'all' ? selectedCategory : undefined,
+      available: true,
+      limit: 12,
+      offset: currentOffset
+    };
+
+    const newProducts = await fetchProducts(filters);
+    
+    if (reset) {
+      setProducts(newProducts);
+      setOffset(12);
+    } else {
+      setProducts(prev => [...prev, ...newProducts]);
+      setOffset(prev => prev + 12);
+    }
+    
+    setHasMore(newProducts.length === 12);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadProducts(true);
+  }, [searchTerm, selectedCategory]);
 
   // Load view preference from localStorage
   useEffect(() => {
@@ -145,6 +188,17 @@ const Marketplace = () => {
   const handleViewModeChange = (mode: 'grid' | 'list') => {
     setViewMode(mode);
     localStorage.setItem('marketplace-view-mode', mode);
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    loadProducts(true);
+  };
+
+  const handleLoadMore = () => {
+    if (!loading && hasMore) {
+      loadProducts(false);
+    }
   };
 
   return (
