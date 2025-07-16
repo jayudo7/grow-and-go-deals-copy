@@ -5,13 +5,112 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { User, Mail, Lock, Eye, EyeOff, Leaf, Phone, MapPin, Store } from "lucide-react";
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const SignUp = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [userType, setUserType] = useState<'buyer' | 'farmer'>('buyer');
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    firstName: '',
+    lastName: '',
+    phone: '',
+    location: '',
+    farmName: '',
+    farmLocation: '',
+    farmDescription: '',
+    farmWebsite: '',
+  });
+  const { signUp, signInWithGoogle, user } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (formData.password !== formData.confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const userData = {
+        full_name: `${formData.firstName} ${formData.lastName}`,
+        user_type: userType,
+        phone: formData.phone,
+        farm_name: userType === 'farmer' ? formData.farmName : undefined,
+        farm_location: userType === 'farmer' ? formData.farmLocation : undefined,
+        farm_description: userType === 'farmer' ? formData.farmDescription : undefined,
+        farm_website: userType === 'farmer' ? formData.farmWebsite : undefined,
+      };
+
+      const { error } = await signUp(formData.email, formData.password, userData);
+      if (error) {
+        toast({
+          title: "Error creating account",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Success!",
+          description: "Please check your email to verify your account.",
+        });
+        navigate("/signin");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        toast({
+          title: "Error signing up with Google",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
@@ -32,186 +131,216 @@ const SignUp = () => {
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* User Type Toggle */}
-            <div className="flex gap-2 p-1 bg-muted rounded-lg">
-              <Button
-                type="button"
-                variant={userType === 'buyer' ? 'default' : 'ghost'}
-                className="flex-1"
-                onClick={() => setUserType('buyer')}
-              >
-                <User className="h-4 w-4 mr-2" />
-                I'm a Buyer
-              </Button>
-              <Button
-                type="button"
-                variant={userType === 'farmer' ? 'default' : 'ghost'}
-                className="flex-1"
-                onClick={() => setUserType('farmer')}
-              >
-                <Store className="h-4 w-4 mr-2" />
-                I'm a Farmer
-              </Button>
-            </div>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input
-                    id="firstName"
-                    placeholder="John"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input
-                    id="lastName"
-                    placeholder="Doe"
-                  />
-                </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* User Type Toggle */}
+              <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                <Button
+                  type="button"
+                  variant={userType === 'buyer' ? 'default' : 'ghost'}
+                  className="flex-1"
+                  onClick={() => setUserType('buyer')}
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  I'm a Buyer
+                </Button>
+                <Button
+                  type="button"
+                  variant={userType === 'farmer' ? 'default' : 'ghost'}
+                  className="flex-1"
+                  onClick={() => setUserType('farmer')}
+                >
+                  <Store className="h-4 w-4 mr-2" />
+                  I'm a Farmer
+                </Button>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="john@example.com"
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="+1 (555) 123-4567"
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="location"
-                    placeholder="City, State"
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-
-              {/* Farmer-specific fields */}
-              {userType === 'farmer' && (
-                <>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="farmName">Farm Name *</Label>
-                    <div className="relative">
-                      <Store className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="farmName"
-                        placeholder="Green Valley Farm"
-                        className="pl-10"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="farmLocation">Farm Location *</Label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="farmLocation"
-                        placeholder="123 Farm Road, Rural County, State 12345"
-                        className="pl-10"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="farmDescription">Farm Description *</Label>
-                    <Textarea
-                      id="farmDescription"
-                      placeholder="Tell us about your farm, your growing practices, and what makes your produce special..."
-                      maxLength={500}
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input
+                      id="firstName"
+                      placeholder="John"
+                      value={formData.firstName}
+                      onChange={(e) => handleInputChange('firstName', e.target.value)}
                       required
                     />
-                    <p className="text-xs text-muted-foreground">Maximum 500 characters</p>
                   </div>
-
                   <div className="space-y-2">
-                    <Label htmlFor="farmWebsite">Farm Website (Optional)</Label>
+                    <Label htmlFor="lastName">Last Name</Label>
                     <Input
-                      id="farmWebsite"
-                      type="url"
-                      placeholder="https://www.yourfarm.com"
+                      id="lastName"
+                      placeholder="Doe"
+                      value={formData.lastName}
+                      onChange={(e) => handleInputChange('lastName', e.target.value)}
+                      required
                     />
                   </div>
-                </>
-              )}
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Create a strong password"
-                    className="pl-10 pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="john@example.com"
+                      className="pl-10"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="+1 (555) 123-4567"
+                      className="pl-10"
+                      value={formData.phone}
+                      onChange={(e) => handleInputChange('phone', e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="location"
+                      placeholder="City, State"
+                      className="pl-10"
+                      value={formData.location}
+                      onChange={(e) => handleInputChange('location', e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Farmer-specific fields */}
+                {userType === 'farmer' && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="farmName">Farm Name *</Label>
+                      <div className="relative">
+                        <Store className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="farmName"
+                          placeholder="Green Valley Farm"
+                          className="pl-10"
+                          value={formData.farmName}
+                          onChange={(e) => handleInputChange('farmName', e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="farmLocation">Farm Location *</Label>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="farmLocation"
+                          placeholder="123 Farm Road, Rural County, State 12345"
+                          className="pl-10"
+                          value={formData.farmLocation}
+                          onChange={(e) => handleInputChange('farmLocation', e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="farmDescription">Farm Description *</Label>
+                      <Textarea
+                        id="farmDescription"
+                        placeholder="Tell us about your farm, your growing practices, and what makes your produce special..."
+                        maxLength={500}
+                        value={formData.farmDescription}
+                        onChange={(e) => handleInputChange('farmDescription', e.target.value)}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">Maximum 500 characters</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="farmWebsite">Farm Website (Optional)</Label>
+                      <Input
+                        id="farmWebsite"
+                        type="url"
+                        placeholder="https://www.yourfarm.com"
+                        value={formData.farmWebsite}
+                        onChange={(e) => handleInputChange('farmWebsite', e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Create a strong password"
+                      className="pl-10 pr-10"
+                      value={formData.password}
+                      onChange={(e) => handleInputChange('password', e.target.value)}
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Confirm your password"
+                      className="pl-10 pr-10"
+                      value={formData.confirmPassword}
+                      onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirm your password"
-                    className="pl-10 pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </div>
+            </form>
 
             <div className="space-y-4">
               <label className="flex items-center space-x-2 cursor-pointer">
@@ -229,9 +358,15 @@ const SignUp = () => {
               </label>
             </div>
 
-            <Button className="w-full" variant="fresh" size="lg">
+            <Button 
+              className="w-full" 
+              variant="fresh" 
+              size="lg"
+              onClick={handleSubmit}
+              disabled={loading}
+            >
               {userType === 'farmer' ? <Store className="h-4 w-4" /> : <User className="h-4 w-4" />}
-              Create {userType === 'farmer' ? 'Farmer' : 'Buyer'} Account
+              {loading ? "Creating Account..." : `Create ${userType === 'farmer' ? 'Farmer' : 'Buyer'} Account`}
             </Button>
 
             <div className="relative">
@@ -245,7 +380,7 @@ const SignUp = () => {
               </div>
             </div>
 
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" onClick={handleGoogleSignUp}>
               <svg className="h-4 w-4" viewBox="0 0 24 24">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
