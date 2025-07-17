@@ -7,58 +7,35 @@ import Footer from "@/components/Footer";
 import { ShoppingCart, Plus, Minus, Trash2, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
+import { useCart } from "@/hooks/useCart";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Cart = () => {
-  const [cartItems, setCartItems] = useState([
-    {
-      id: 1,
-      name: "Organic Heirloom Tomatoes",
-      price: 8.99,
-      quantity: 2,
-      image: "/placeholder.svg",
-      farmer: "Green Valley Farm",
-      unit: "lb",
-    },
-    {
-      id: 2,
-      name: "Fresh Baby Spinach",
-      price: 4.50,
-      quantity: 3,
-      image: "/placeholder.svg",
-      farmer: "Sunny Acres",
-      unit: "bunch",
-    },
-    {
-      id: 3,
-      name: "Sweet Corn Bundle",
-      price: 12.99,
-      quantity: 1,
-      image: "/placeholder.svg",
-      farmer: "Meadow Brook Farm",
-      unit: "bundle",
-    },
-  ]);
-
+  const { user } = useAuth();
+  const { cartItems, updateQuantity, removeFromCart, clearCart, getTotalPrice, getTotalItems, loading } = useCart();
   const [promoCode, setPromoCode] = useState("");
 
-  const updateQuantity = (id: number, newQuantity: number) => {
-    if (newQuantity === 0) {
-      setCartItems(cartItems.filter(item => item.id !== id));
-    } else {
-      setCartItems(cartItems.map(item => 
-        item.id === id ? { ...item, quantity: newQuantity } : item
-      ));
-    }
-  };
-
-  const removeItem = (id: number) => {
-    setCartItems(cartItems.filter(item => item.id !== id));
-  };
-
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = getTotalPrice();
   const shipping = subtotal > 50 ? 0 : 5.99;
   const tax = subtotal * 0.08; // 8% tax
   const total = subtotal + shipping + tax;
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Please sign in to view your cart</h1>
+            <Button asChild>
+              <Link to="/signin">Sign In</Link>
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -72,7 +49,7 @@ const Cart = () => {
               Shopping Cart
             </h1>
             <p className="text-muted-foreground">
-              {cartItems.length} item{cartItems.length !== 1 ? 's' : ''} in your cart
+              {loading ? 'Loading...' : `${cartItems.length} item${cartItems.length !== 1 ? 's' : ''} in your cart`}
             </p>
           </div>
 
@@ -96,28 +73,28 @@ const Cart = () => {
                     <CardContent className="p-6">
                       <div className="flex gap-4">
                         <img
-                          src={item.image}
-                          alt={item.name}
+                          src={item.product.image_url || "/placeholder.svg"}
+                          alt={item.product.name}
                           className="w-20 h-20 object-cover rounded-lg"
                         />
                         
                         <div className="flex-1">
-                          <Link to={`/product/${item.id}`}>
+                          <Link to={`/product/${item.product.id}`}>
                             <h3 className="font-semibold text-foreground hover:text-primary transition-colors">
-                              {item.name}
+                              {item.product.name}
                             </h3>
                           </Link>
                           <p className="text-sm text-muted-foreground mb-2">
-                            by <Link to={`/seller/${item.farmer.toLowerCase().replace(/\s+/g, '-')}`} className="text-primary hover:underline">{item.farmer}</Link>
+                            by <span className="text-primary">{item.product.temp_farmer_name}</span>
                           </p>
-                          <p className="text-lg font-bold text-primary">${item.price} per {item.unit}</p>
+                          <p className="text-lg font-bold text-primary">${item.product.price} per {item.product.unit}</p>
                         </div>
                         
                         <div className="flex flex-col items-end gap-2">
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => removeItem(item.id)}
+                            onClick={() => removeFromCart(item.product_id)}
                             className="text-destructive hover:text-destructive"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -127,7 +104,7 @@ const Cart = () => {
                             <Button
                               variant="outline"
                               size="icon"
-                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
                               className="h-8 w-8"
                             >
                               <Minus className="h-3 w-3" />
@@ -136,7 +113,7 @@ const Cart = () => {
                             <Button
                               variant="outline"
                               size="icon"
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
                               className="h-8 w-8"
                             >
                               <Plus className="h-3 w-3" />
@@ -144,7 +121,7 @@ const Cart = () => {
                           </div>
                           
                           <p className="font-semibold">
-                            ${(item.price * item.quantity).toFixed(2)}
+                            ${(item.product.price * item.quantity).toFixed(2)}
                           </p>
                         </div>
                       </div>

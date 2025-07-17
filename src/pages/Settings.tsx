@@ -9,11 +9,106 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { User, Lock, Bell, MapPin, Phone, Mail, Store, Upload, Shield } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+import type { Database } from "@/integrations/supabase/types";
+
+type UserType = Database['public']['Enums']['user_type'];
+type ProfileData = Database['public']['Tables']['profiles']['Row'];
 
 const Settings = () => {
-  const [userType, setUserType] = useState<'buyer' | 'farmer'>('buyer');
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  
+  // Form state
+  const [formData, setFormData] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    user_type: 'buyer' as UserType,
+    farm_name: '',
+    farm_location: '',
+    farm_description: '',
+    farm_website: '',
+    notification_preferences: {
+      email: true,
+      push: true,
+      sms: false,
+      marketing: false
+    },
+    privacy_settings: {
+      profile_public: true,
+      show_email: false,
+      show_phone: false,
+      allow_messages: true,
+      purchase_history_visible: true,
+      location_sharing: false
+    }
+  });
+  
+  const [passwordData, setPasswordData] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: ''
+  });
+
+  // Fetch profile data
+  const fetchProfile = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (error) throw error;
+      
+      setProfile(data);
+      setFormData({
+        full_name: data.full_name || '',
+        email: data.email || '',
+        phone: data.phone || '',
+        user_type: data.user_type || 'buyer',
+        farm_name: data.farm_name || '',
+        farm_location: data.farm_location || '',
+        farm_description: data.farm_description || '',
+        farm_website: data.farm_website || '',
+        notification_preferences: (data.notification_preferences as any) || {
+          email: true,
+          push: true,
+          sms: false,
+          marketing: false
+        },
+        privacy_settings: (data.privacy_settings as any) || {
+          profile_public: true,
+          show_email: false,
+          show_phone: false,
+          allow_messages: true,
+          purchase_history_visible: true,
+          location_sharing: false
+        }
+      });
+      setProfileImage(data.avatar_url);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load profile data',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchProfile();
+  }, [user]);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -25,6 +120,104 @@ const Settings = () => {
       reader.readAsDataURL(file);
     }
   };
+  
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: formData.full_name,
+          phone: formData.phone,
+          user_type: formData.user_type,
+          farm_name: formData.farm_name,
+          farm_location: formData.farm_location,
+          farm_description: formData.farm_description,
+          farm_website: formData.farm_website,
+          notification_preferences: formData.notification_preferences,
+          privacy_settings: formData.privacy_settings,
+          avatar_url: profileImage
+        })
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Success',
+        description: 'Profile updated successfully'
+      });
+      
+      fetchProfile();
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update profile',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handlePasswordChange = async () => {
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      toast({
+        title: 'Error',
+        description: 'New passwords do not match',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.new_password
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Success',
+        description: 'Password updated successfully'
+      });
+      
+      setPasswordData({
+        current_password: '',
+        new_password: '',
+        confirm_password: ''
+      });
+    } catch (error) {
+      console.error('Error updating password:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update password',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Please sign in to access settings</h1>
+            <Button asChild>
+              <a href="/signin">Sign In</a>
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -94,7 +287,7 @@ const Settings = () => {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Account Type</Label>
-                  <Select value={userType} onValueChange={(value: 'buyer' | 'farmer') => setUserType(value)}>
+                  <Select value={formData.user_type} onValueChange={(value: UserType) => setFormData(prev => ({ ...prev, user_type: value }))}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -120,27 +313,34 @@ const Settings = () => {
                 <CardDescription>Update your personal details and contact information</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" placeholder="John" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" placeholder="Farmer" />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">Full Name</Label>
+                  <Input 
+                    id="fullName" 
+                    placeholder="John Doe" 
+                    value={formData.full_name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="john@farm.com" />
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    placeholder="john@farm.com" 
+                    value={formData.email}
+                    disabled
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" type="tel" placeholder="+1 (555) 123-4567" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="bio">Bio</Label>
-                  <Textarea id="bio" placeholder="Tell us about yourself..." />
+                  <Input 
+                    id="phone" 
+                    type="tel" 
+                    placeholder="+1 (555) 123-4567" 
+                    value={formData.phone}
+                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -177,7 +377,7 @@ const Settings = () => {
             </Card>
 
             {/* Farmer-specific Settings */}
-            {userType === 'farmer' && (
+            {formData.user_type === 'farmer' && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -189,11 +389,21 @@ const Settings = () => {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="farmName">Farm Name</Label>
-                    <Input id="farmName" placeholder="Green Valley Farm" />
+                    <Input 
+                      id="farmName" 
+                      placeholder="Green Valley Farm" 
+                      value={formData.farm_name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, farm_name: e.target.value }))}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="farmLocation">Farm Location</Label>
-                    <Input id="farmLocation" placeholder="123 Farm Road, Rural County, State 12345" />
+                    <Input 
+                      id="farmLocation" 
+                      placeholder="123 Farm Road, Rural County, State 12345" 
+                      value={formData.farm_location}
+                      onChange={(e) => setFormData(prev => ({ ...prev, farm_location: e.target.value }))}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="farmDescription">Farm Description</Label>
@@ -201,18 +411,19 @@ const Settings = () => {
                       id="farmDescription" 
                       placeholder="Tell customers about your farm, growing practices, and what makes your produce special..."
                       maxLength={500}
+                      value={formData.farm_description}
+                      onChange={(e) => setFormData(prev => ({ ...prev, farm_description: e.target.value }))}
                     />
                     <p className="text-xs text-muted-foreground">Maximum 500 characters</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="farmWebsite">Farm Website</Label>
-                    <Input id="farmWebsite" type="url" placeholder="https://www.yourfarm.com" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="certifications">Certifications</Label>
-                    <Textarea 
-                      id="certifications" 
-                      placeholder="List your organic certifications, awards, or other credentials..."
+                    <Input 
+                      id="farmWebsite" 
+                      type="url" 
+                      placeholder="https://www.yourfarm.com" 
+                      value={formData.farm_website}
+                      onChange={(e) => setFormData(prev => ({ ...prev, farm_website: e.target.value }))}
                     />
                   </div>
                 </CardContent>
@@ -303,16 +514,38 @@ const Settings = () => {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="currentPassword">Current Password</Label>
-                  <Input id="currentPassword" type="password" />
+                  <Input 
+                    id="currentPassword" 
+                    type="password" 
+                    value={passwordData.current_password}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, current_password: e.target.value }))}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="newPassword">New Password</Label>
-                  <Input id="newPassword" type="password" />
+                  <Input 
+                    id="newPassword" 
+                    type="password" 
+                    value={passwordData.new_password}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, new_password: e.target.value }))}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                  <Input id="confirmPassword" type="password" />
+                  <Input 
+                    id="confirmPassword" 
+                    type="password" 
+                    value={passwordData.confirm_password}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, confirm_password: e.target.value }))}
+                  />
                 </div>
+                <Button 
+                  variant="outline" 
+                  onClick={handlePasswordChange}
+                  disabled={loading || !passwordData.new_password || !passwordData.confirm_password}
+                >
+                  Update Password
+                </Button>
               </CardContent>
             </Card>
 
@@ -354,8 +587,12 @@ const Settings = () => {
 
             {/* Action Buttons */}
             <div className="flex gap-4">
-              <Button className="flex-1">Save Changes</Button>
-              <Button variant="outline" className="flex-1">Cancel</Button>
+              <Button className="flex-1" onClick={handleSaveProfile} disabled={loading}>
+                {loading ? 'Saving...' : 'Save Changes'}
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={fetchProfile}>
+                Cancel
+              </Button>
             </div>
           </div>
         </div>

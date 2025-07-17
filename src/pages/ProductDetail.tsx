@@ -3,49 +3,125 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Star, MapPin, ShoppingCart, Heart, Share2, Truck, Shield, Leaf, ArrowLeft, Plus, Minus } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useProduct } from "@/hooks/useProducts";
+import { useCart } from "@/hooks/useCart";
+import { useFavorites } from "@/hooks/useFavorites";
+import { useAuth } from "@/contexts/AuthContext";
+import { useReviews } from "@/hooks/useReviews";
+import { useToast } from "@/components/ui/use-toast";
 
 const ProductDetail = () => {
   const { id } = useParams();
+  const { user } = useAuth();
+  const { product, loading } = useProduct(id || '');
+  const { addToCart } = useCart();
+  const { toggleFavorite, isFavorite } = useFavorites();
+  const { reviews } = useReviews();
+  const { toast } = useToast();
+  
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
 
-  // Mock product data - in real app, this would be fetched based on ID
-  const product = {
-    id: 1,
-    name: "Organic Roma Tomatoes",
-    price: "$4.99",
-    unit: "per lb",
-    rating: 4.8,
-    reviews: 124,
-    farmer: "Green Valley Farm",
-    location: "Salinas, California",
-    images: ["🍅", "🍅", "🍅"],
-    badges: ["Organic", "Non-GMO", "Local"],
-    description: "Premium organic Roma tomatoes, perfect for sauces, salads, and cooking. Grown using sustainable farming practices without pesticides or synthetic fertilizers. Hand-picked at peak ripeness for maximum flavor and nutrition.",
-    features: [
-      "100% Certified Organic",
-      "Pesticide-free growing",
-      "Harvested daily",
-      "Peak ripeness guaranteed",
-      "Rich in vitamins and antioxidants"
-    ],
-    inStock: true,
-    stockQuantity: 50,
-    category: "Vegetables",
-    harvestDate: "2024-01-15",
-    shelfLife: "7-10 days refrigerated"
-  };
-
+  // Mock related products - in real app, these would be fetched based on category
   const relatedProducts = [
     { id: 2, name: "Fresh Carrots", price: "$2.99", image: "🥕", rating: 4.9 },
     { id: 3, name: "Sweet Corn", price: "$3.50", image: "🌽", rating: 4.7 },
     { id: 4, name: "Bell Peppers", price: "$5.99", image: "🫑", rating: 4.8 },
     { id: 5, name: "Leafy Spinach", price: "$3.99", image: "🥬", rating: 4.6 }
   ];
+
+  const handleAddToCart = async () => {
+    if (!user) {
+      toast({
+        title: 'Sign in required',
+        description: 'Please sign in to add items to cart',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!product) return;
+
+    try {
+      await addToCart(product.id, quantity);
+      toast({
+        title: 'Added to cart',
+        description: `${quantity} ${product.name} added to your cart`
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to add item to cart',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleToggleFavorite = async () => {
+    if (!user) {
+      toast({
+        title: 'Sign in required',
+        description: 'Please sign in to save favorites',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!product) return;
+
+    await toggleFavorite(product.id);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">Loading product details...</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Product not found</h1>
+            <Button asChild>
+              <Link to="/marketplace">Back to Marketplace</Link>
+            </Button>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  const badges = [];
+  if (product.is_organic) badges.push("Organic");
+  if (product.is_featured) badges.push("Featured");
+  badges.push("Local");
+
+  const features = [
+    "Fresh from the farm",
+    "Sustainably grown",
+    "Peak ripeness guaranteed",
+    "Rich in vitamins and nutrients"
+  ];
+
+  const images = [product.image_url || "/placeholder.svg"];
+  const productReviews = reviews.filter(review => review.product_id === product.id);
 
   return (
     <div className="min-h-screen bg-background">
@@ -58,7 +134,7 @@ const ProductDetail = () => {
           <span>/</span>
           <Link to="/marketplace" className="hover:text-primary">Marketplace</Link>
           <span>/</span>
-          <span className="text-foreground">{product.category}</span>
+          <span className="text-foreground">{product.category?.name || 'Fresh Produce'}</span>
         </div>
 
         {/* Back Button */}
@@ -72,21 +148,29 @@ const ProductDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
           {/* Product Images */}
           <div className="space-y-4">
-            <div className="aspect-square bg-muted/30 rounded-lg flex items-center justify-center text-8xl">
-              {product.images[selectedImage]}
+            <div className="aspect-square bg-muted/30 rounded-lg flex items-center justify-center overflow-hidden">
+              <img
+                src={images[selectedImage]}
+                alt={product.name}
+                className="w-full h-full object-cover"
+              />
             </div>
             <div className="flex gap-2">
-              {product.images.map((image, index) => (
+              {images.map((image, index) => (
                 <button
                   key={index}
                   onClick={() => setSelectedImage(index)}
-                  className={`w-20 h-20 rounded-lg border-2 flex items-center justify-center text-2xl transition-colors ${
+                  className={`w-20 h-20 rounded-lg border-2 flex items-center justify-center overflow-hidden transition-colors ${
                     selectedImage === index
                       ? "border-primary bg-primary/10"
                       : "border-border bg-muted/30 hover:border-primary/50"
                   }`}
                 >
-                  {image}
+                  <img
+                    src={image}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                  />
                 </button>
               ))}
             </div>
@@ -96,7 +180,7 @@ const ProductDetail = () => {
           <div className="space-y-6">
             <div>
               <div className="flex flex-wrap gap-2 mb-3">
-                {product.badges.map((badge) => (
+                {badges.map((badge) => (
                   <Badge key={badge} className="bg-primary text-primary-foreground">
                     {badge}
                   </Badge>
@@ -114,38 +198,38 @@ const ProductDetail = () => {
                       <Star
                         key={i}
                         className={`h-5 w-5 ${
-                          i < Math.floor(product.rating)
+                          i < Math.floor(4.5)
                             ? "text-accent fill-current"
                             : "text-muted-foreground"
                         }`}
                       />
                     ))}
                   </div>
-                  <span className="font-medium">{product.rating}</span>
-                  <span className="text-muted-foreground">({product.reviews} reviews)</span>
+                  <span className="font-medium">4.5</span>
+                  <span className="text-muted-foreground">({productReviews.length} reviews)</span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 text-muted-foreground mb-6">
                 <MapPin className="h-4 w-4" />
-                <span>{product.farmer} • {product.location}</span>
+                <span>{product.temp_farmer_name} • {product.temp_farmer_location}</span>
               </div>
             </div>
 
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-foreground">{product.price}</span>
+              <span className="text-4xl font-bold text-foreground">${product.price}</span>
               <span className="text-lg text-muted-foreground">{product.unit}</span>
             </div>
 
             <p className="text-muted-foreground leading-relaxed">
-              {product.description}
+              {product.description || "Fresh, high-quality produce straight from the farm."}
             </p>
 
             {/* Product Features */}
             <div>
               <h3 className="font-semibold mb-3">Key Features:</h3>
               <ul className="space-y-2">
-                {product.features.map((feature, index) => (
+                {features.map((feature, index) => (
                   <li key={index} className="flex items-center gap-2 text-sm">
                     <Leaf className="h-4 w-4 text-primary" />
                     {feature}
@@ -178,17 +262,17 @@ const ProductDetail = () => {
                   </Button>
                 </div>
                 <span className="text-sm text-muted-foreground">
-                  {product.stockQuantity} available
+                  {product.stock_quantity || 0} available
                 </span>
               </div>
 
               <div className="flex gap-4">
-                <Button className="flex-1" variant="fresh" size="lg">
+                <Button className="flex-1" variant="fresh" size="lg" onClick={handleAddToCart}>
                   <ShoppingCart className="h-5 w-5" />
                   Add to Cart
                 </Button>
-                <Button variant="outline" size="lg">
-                  <Heart className="h-5 w-5" />
+                <Button variant="outline" size="lg" onClick={handleToggleFavorite}>
+                  <Heart className={`h-5 w-5 ${isFavorite(product.id) ? 'fill-current text-red-500' : ''}`} />
                 </Button>
                 <Button variant="outline" size="lg">
                   <Share2 className="h-5 w-5" />
@@ -235,15 +319,15 @@ const ProductDetail = () => {
               <dl className="space-y-3">
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Category:</dt>
-                  <dd className="font-medium">{product.category}</dd>
+                  <dd className="font-medium">{product.category?.name || 'Fresh Produce'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Harvest Date:</dt>
-                  <dd className="font-medium">{product.harvestDate}</dd>
+                  <dd className="font-medium">{(product as any).harvest_date || 'Recently harvested'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Shelf Life:</dt>
-                  <dd className="font-medium">{product.shelfLife}</dd>
+                  <dd className="font-medium">{(product as any).expiry_date || '7-10 days refrigerated'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Storage:</dt>
@@ -262,8 +346,8 @@ const ProductDetail = () => {
                     <Leaf className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium">{product.farmer}</p>
-                    <p className="text-sm text-muted-foreground">{product.location}</p>
+                    <p className="font-medium">{product.temp_farmer_name}</p>
+                    <p className="text-sm text-muted-foreground">{product.temp_farmer_location}</p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
