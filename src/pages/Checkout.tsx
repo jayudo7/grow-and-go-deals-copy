@@ -486,7 +486,7 @@ const Checkout = () => {
               <div className="flex items-center space-x-2">
                 <Checkbox id="terms" checked={termsAccepted} onCheckedChange={setTermsAccepted} />
                 <Label htmlFor="terms" className="text-sm">
-                  I agree to the <Link to="/terms" className="text-primary hover:underline">Terms of Service</Link> and <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
+                  I agree to the <Link to="/terms" className="text-primary hover:underline">Terms of Service</Link> and <Link to="/privacy" className=\"text-primary hover:underline">Privacy Policy</Link>
                 </Label>
               </div>
 
