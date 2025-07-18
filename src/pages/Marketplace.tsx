@@ -10,129 +10,6 @@ import { useSearchParams } from "react-router-dom";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 
-const products = [
-  {
-    id: 1,
-    name: "Organic Tomatoes",
-    price: "$4.99",
-    unit: "per lb",
-    rating: 4.8,
-    reviews: 124,
-    farmer: "Green Valley Farm",
-    location: "California",
-    image: "🍅",
-    badge: "Organic",
-    badgeColor: "bg-primary",
-    category: "vegetables",
-    description: "Fresh, vine-ripened organic tomatoes bursting with flavor. Perfect for salads, sauces, and cooking."
-  },
-  {
-    id: 2,
-    name: "Fresh Carrots",
-    price: "$2.99",
-    unit: "per bunch",
-    rating: 4.9,
-    reviews: 89,
-    farmer: "Sunset Gardens",
-    location: "Oregon",
-    image: "🥕",
-    badge: "Local",
-    badgeColor: "bg-accent",
-    category: "vegetables",
-    description: "Crisp, sweet carrots harvested fresh from local organic farms. Great for snacking and cooking."
-  },
-  {
-    id: 3,
-    name: "Sweet Corn",
-    price: "$3.50",
-    unit: "per dozen",
-    rating: 4.7,
-    reviews: 156,
-    farmer: "Prairie Farms",
-    location: "Iowa",
-    image: "🌽",
-    badge: "Fresh",
-    badgeColor: "bg-secondary-warm",
-    category: "vegetables",
-    description: "Sweet, juicy corn picked at peak freshness. Perfect for grilling, boiling, or adding to summer dishes."
-  },
-  {
-    id: 4,
-    name: "Fresh Strawberries",
-    price: "$6.99",
-    unit: "per basket",
-    rating: 4.9,
-    reviews: 203,
-    farmer: "Berry Best Farm",
-    location: "Washington",
-    image: "🍓",
-    badge: "Sweet",
-    badgeColor: "bg-red-500",
-    category: "fruits",
-    description: "Plump, sweet strawberries picked at peak ripeness. Perfect for desserts, smoothies, or eating fresh."
-  },
-  {
-    id: 5,
-    name: "Crisp Apples",
-    price: "$3.99",
-    unit: "per lb",
-    rating: 4.6,
-    reviews: 134,
-    farmer: "Orchard Hills",
-    location: "Michigan",
-    image: "🍎",
-    badge: "Crisp",
-    badgeColor: "bg-red-600",
-    category: "fruits",
-    description: "Crisp, tart apples perfect for snacking, baking, or making fresh apple cider."
-  },
-  {
-    id: 6,
-    name: "Golden Bananas",
-    price: "$1.99",
-    unit: "per bunch",
-    rating: 4.5,
-    reviews: 98,
-    farmer: "Tropical Farms",
-    location: "Florida",
-    image: "🍌",
-    badge: "Tropical",
-    badgeColor: "bg-yellow-500",
-    category: "fruits",
-    description: "Sweet, ripe bananas perfect for smoothies, baking, or a healthy snack on the go."
-  },
-  {
-    id: 7,
-    name: "Organic Wheat",
-    price: "$2.50",
-    unit: "per lb",
-    rating: 4.7,
-    reviews: 67,
-    farmer: "Golden Fields",
-    location: "Kansas",
-    image: "🌾",
-    badge: "Organic",
-    badgeColor: "bg-primary",
-    category: "grains",
-    description: "Premium organic wheat flour, stone-ground for the best flavor and nutrition."
-  },
-  {
-    id: 8,
-    name: "Fresh Milk",
-    price: "$4.50",
-    unit: "per gallon",
-    rating: 4.8,
-    reviews: 89,
-    farmer: "Dairy Dreams",
-    location: "Wisconsin",
-    image: "🥛",
-    badge: "Fresh",
-    badgeColor: "bg-blue-500",
-    category: "dairy",
-    description: "Fresh, creamy milk from grass-fed cows. Rich in nutrients and perfect for drinking or cooking."
-  }
-];
-
 const Marketplace = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchParams] = useSearchParams();
@@ -217,25 +94,28 @@ const Marketplace = () => {
         {/* Filters and Search */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
           <div className="lg:col-span-3">
-            <div className="relative">
+            <form onSubmit={handleSearch} className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
               <Input
                 placeholder="Search for fresh produce..."
                 className="pl-10 h-12 text-lg"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
-            </div>
+            </form>
           </div>
           <div className="flex gap-2">
-            <Select>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="h-12">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="fruits">Fruits</SelectItem>
-                <SelectItem value="vegetables">Vegetables</SelectItem>
-                <SelectItem value="grains">Grains</SelectItem>
-                <SelectItem value="dairy">Dairy</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.slug}>
+                    {category.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Button variant="outline" size="icon" className="h-12 w-12">
@@ -247,7 +127,7 @@ const Marketplace = () => {
         {/* View Toggle and Results Count */}
         <div className="flex justify-between items-center mb-6">
           <p className="text-muted-foreground">
-            Showing {products.length} products
+            {loading ? 'Loading...' : `Showing ${products.length} products`}
           </p>
           <div className="flex gap-2">
             <Button 
@@ -268,26 +148,40 @@ const Marketplace = () => {
         </div>
 
         {/* Products Display */}
-        <div className={`transition-all duration-300 ${
-          viewMode === 'grid' 
-            ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' 
-            : 'space-y-4'
-        }`}>
-          {products.map((product) => (
-            <ProductCard 
-              key={product.id} 
-              product={product} 
-              viewMode={viewMode}
-            />
-          ))}
-        </div>
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading products...</p>
+          </div>
+        ) : products.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-xl text-muted-foreground mb-4">No products found</p>
+            <p className="text-muted-foreground">Try adjusting your search or filters</p>
+          </div>
+        ) : (
+          <div className={`transition-all duration-300 ${
+            viewMode === 'grid' 
+              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' 
+              : 'space-y-4'
+          }`}>
+            {products.map((product) => (
+              <ProductCard 
+                key={product.id} 
+                product={product} 
+                viewMode={viewMode}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Load More */}
-        <div className="text-center mt-12">
-          <Button variant="outline" size="lg">
-            Load More Products
-          </Button>
-        </div>
+        {hasMore && !loading && products.length > 0 && (
+          <div className="text-center mt-12">
+            <Button variant="outline" size="lg" onClick={handleLoadMore}>
+              Load More Products
+            </Button>
+          </div>
+        )}
       </div>
 
       <Footer />

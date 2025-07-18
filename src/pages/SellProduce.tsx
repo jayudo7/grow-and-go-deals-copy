@@ -4,11 +4,211 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Upload, ImagePlus, Leaf, DollarSign } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCategories } from "@/hooks/useCategories";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const SellProduce = () => {
+  const { user } = useAuth();
+  const { categories } = useCategories();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [productData, setProductData] = useState({
+    name: '',
+    description: '',
+    price: '',
+    unit: 'per lb',
+    category_id: '',
+    stock_quantity: '',
+    is_organic: false,
+    is_featured: false,
+    harvest_date: '',
+    expiry_date: '',
+    temp_farmer_name: '',
+    temp_farmer_location: ''
+  });
+  const [productImages, setProductImages] = useState<string[]>([]);
+
+  const handleInputChange = (field: string, value: string | boolean | number) => {
+    setProductData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const newImages = [...productImages];
+        newImages[index] = e.target?.result as string;
+        setProductImages(newImages);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const validateForm = () => {
+    const requiredFields = ['name', 'description', 'price', 'category_id', 'stock_quantity', 'temp_farmer_name', 'temp_farmer_location'];
+    const missingFields = requiredFields.filter(field => !productData[field as keyof typeof productData]);
+    
+    if (missingFields.length > 0) {
+      toast({
+        title: 'Missing Information',
+        description: 'Please fill in all required fields',
+        variant: 'destructive'
+      });
+      return false;
+    }
+    
+    if (parseFloat(productData.price) <= 0) {
+      toast({
+        title: 'Invalid Price',
+        description: 'Price must be greater than 0',
+        variant: 'destructive'
+      });
+      return false;
+    }
+    
+    if (parseInt(productData.stock_quantity) <= 0) {
+      toast({
+        title: 'Invalid Quantity',
+        description: 'Stock quantity must be greater than 0',
+        variant: 'destructive'
+      });
+      return false;
+    }
+    
+    return true;
+  };
+
+  const handleSaveDraft = async () => {
+    if (!user) {
+      toast({
+        title: 'Sign in required',
+        description: 'Please sign in to save products',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!validateForm()) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .insert({
+          ...productData,
+          price: parseFloat(productData.price),
+          stock_quantity: parseInt(productData.stock_quantity),
+          image_url: productImages[0] || '📦',
+          is_available: false, // Draft products are not available
+          farmer_id: null // Using temp fields for now
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Draft saved',
+        description: 'Your product has been saved as a draft'
+      });
+
+      // Reset form
+      setProductData({
+        name: '',
+        description: '',
+        price: '',
+        unit: 'per lb',
+        category_id: '',
+        stock_quantity: '',
+        is_organic: false,
+        is_featured: false,
+        harvest_date: '',
+        expiry_date: '',
+        temp_farmer_name: '',
+        temp_farmer_location: ''
+      });
+      setProductImages([]);
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save draft',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePublishProduct = async () => {
+    if (!user) {
+      toast({
+        title: 'Sign in required',
+        description: 'Please sign in to publish products',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!validateForm()) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .insert({
+          ...productData,
+          price: parseFloat(productData.price),
+          stock_quantity: parseInt(productData.stock_quantity),
+          image_url: productImages[0] || '📦',
+          is_available: true, // Published products are available
+          farmer_id: null // Using temp fields for now
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Product published!',
+        description: 'Your product is now live on the marketplace'
+      });
+
+      navigate('/marketplace');
+    } catch (error) {
+      console.error('Error publishing product:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to publish product',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Please sign in to sell products</h1>
+            <Button asChild>
+              <Link to="/signin">Sign In</Link>
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -43,9 +243,30 @@ const SellProduce = () => {
                 <Label htmlFor="images" className="text-base font-medium">Product Images</Label>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer">
-                      <ImagePlus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-sm text-muted-foreground">Click to upload image {i}</p>
+                    <div 
+                      key={i} 
+                      className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer relative overflow-hidden"
+                      onClick={() => document.getElementById(`image-${i}`)?.click()}
+                    >
+                      {productImages[i - 1] ? (
+                        <img 
+                          src={productImages[i - 1]} 
+                          alt={`Product ${i}`}
+                          className="w-full h-full object-cover absolute inset-0"
+                        />
+                      ) : (
+                        <>
+                          <ImagePlus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-sm text-muted-foreground">Click to upload image {i}</p>
+                        </>
+                      )}
+                      <input
+                        id={`image-${i}`}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleImageUpload(e, i - 1)}
+                        className="hidden"
+                      />
                     </div>
                   ))}
                 </div>
@@ -59,22 +280,23 @@ const SellProduce = () => {
                     id="product-name" 
                     placeholder="e.g., Organic Roma Tomatoes"
                     className="h-12"
+                    value={productData.name}
+                    onChange={(e) => handleInputChange('name', e.target.value)}
                   />
                 </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="category" className="text-base font-medium">Category</Label>
-                  <Select>
+                  <Select value={productData.category_id} onValueChange={(value) => handleInputChange('category_id', value)}>
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="fruits">Fresh Fruits</SelectItem>
-                      <SelectItem value="vegetables">Vegetables</SelectItem>
-                      <SelectItem value="grains">Grains & Cereals</SelectItem>
-                      <SelectItem value="dairy">Dairy Products</SelectItem>
-                      <SelectItem value="herbs">Herbs & Spices</SelectItem>
-                      <SelectItem value="poultry">Poultry & Eggs</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -86,6 +308,8 @@ const SellProduce = () => {
                   id="description"
                   placeholder="Describe your product - freshness, growing methods, taste, etc."
                   className="min-h-[100px]"
+                  value={productData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
                 />
               </div>
 
@@ -101,13 +325,15 @@ const SellProduce = () => {
                       className="pl-10 h-12"
                       type="number"
                       step="0.01"
+                      value={productData.price}
+                      onChange={(e) => handleInputChange('price', e.target.value)}
                     />
                   </div>
                 </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="unit" className="text-base font-medium">Unit</Label>
-                  <Select>
+                  <Select value={productData.unit} onValueChange={(value) => handleInputChange('unit', value)}>
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="per..." />
                     </SelectTrigger>
@@ -130,6 +356,8 @@ const SellProduce = () => {
                     placeholder="100"
                     className="h-12"
                     type="number"
+                    value={productData.stock_quantity}
+                    onChange={(e) => handleInputChange('stock_quantity', e.target.value)}
                   />
                 </div>
               </div>
@@ -142,6 +370,8 @@ const SellProduce = () => {
                     id="farm-name" 
                     placeholder="e.g., Green Valley Farm"
                     className="h-12"
+                    value={productData.temp_farmer_name}
+                    onChange={(e) => handleInputChange('temp_farmer_name', e.target.value)}
                   />
                 </div>
                 
@@ -151,6 +381,8 @@ const SellProduce = () => {
                     id="location" 
                     placeholder="City, State"
                     className="h-12"
+                    value={productData.temp_farmer_location}
+                    onChange={(e) => handleInputChange('temp_farmer_location', e.target.value)}
                   />
                 </div>
               </div>
@@ -159,33 +391,68 @@ const SellProduce = () => {
               <div className="space-y-4">
                 <Label className="text-base font-medium">Product Attributes</Label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {[
-                    "Organic",
-                    "Non-GMO",
-                    "Locally Grown",
-                    "Pesticide Free",
-                    "Farm Fresh",
-                    "Seasonal"
-                  ].map((attribute) => (
-                    <label key={attribute} className="flex items-center space-x-2 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="rounded border-border text-primary focus:ring-primary" 
-                      />
-                      <span className="text-sm">{attribute}</span>
-                    </label>
-                  ))}
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="organic"
+                      checked={productData.is_organic}
+                      onCheckedChange={(checked) => handleInputChange('is_organic', checked)}
+                    />
+                    <Label htmlFor="organic" className="text-sm cursor-pointer">Organic</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="featured"
+                      checked={productData.is_featured}
+                      onCheckedChange={(checked) => handleInputChange('is_featured', checked)}
+                    />
+                    <Label htmlFor="featured" className="text-sm cursor-pointer">Featured Product</Label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Harvest and Expiry Dates */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="harvest-date" className="text-base font-medium">Harvest Date (Optional)</Label>
+                  <Input 
+                    id="harvest-date" 
+                    type="date"
+                    className="h-12"
+                    value={productData.harvest_date}
+                    onChange={(e) => handleInputChange('harvest_date', e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="expiry-date" className="text-base font-medium">Best By Date (Optional)</Label>
+                  <Input 
+                    id="expiry-date" 
+                    type="date"
+                    className="h-12"
+                    value={productData.expiry_date}
+                    onChange={(e) => handleInputChange('expiry_date', e.target.value)}
+                  />
                 </div>
               </div>
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 pt-6">
-                <Button variant="outline" className="flex-1">
-                  Save as Draft
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={handleSaveDraft}
+                  disabled={loading}
+                >
+                  {loading ? 'Saving...' : 'Save as Draft'}
                 </Button>
-                <Button variant="fresh" className="flex-1">
+                <Button 
+                  variant="fresh" 
+                  className="flex-1"
+                  onClick={handlePublishProduct}
+                  disabled={loading}
+                >
                   <Upload className="h-4 w-4" />
-                  Publish Product
+                  {loading ? 'Publishing...' : 'Publish Product'}
                 </Button>
               </div>
             </CardContent>

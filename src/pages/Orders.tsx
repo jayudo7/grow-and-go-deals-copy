@@ -5,63 +5,12 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Package, Truck, CheckCircle, Clock, Eye } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useOrders } from "@/hooks/useOrders";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Orders = () => {
-  const orders = [
-    {
-      id: "ORD-2024-001",
-      date: "2024-01-15",
-      status: "delivered",
-      total: 45.67,
-      items: 3,
-      deliveryDate: "2024-01-18",
-      trackingNumber: "TRK123456789",
-      products: [
-        { name: "Organic Heirloom Tomatoes", quantity: 2, price: 8.99 },
-        { name: "Fresh Baby Spinach", quantity: 1, price: 4.50 },
-        { name: "Sweet Corn Bundle", quantity: 1, price: 12.99 },
-      ],
-    },
-    {
-      id: "ORD-2024-002",
-      date: "2024-01-20",
-      status: "shipped",
-      total: 32.45,
-      items: 2,
-      deliveryDate: "2024-01-23",
-      trackingNumber: "TRK987654321",
-      products: [
-        { name: "Organic Carrots", quantity: 3, price: 5.99 },
-        { name: "Rainbow Swiss Chard", quantity: 1, price: 6.75 },
-      ],
-    },
-    {
-      id: "ORD-2024-003",
-      date: "2024-01-22",
-      status: "processing",
-      total: 28.90,
-      items: 4,
-      deliveryDate: "2024-01-25",
-      trackingNumber: null,
-      products: [
-        { name: "Baby Lettuce Mix", quantity: 2, price: 5.25 },
-        { name: "Fresh Basil Bunches", quantity: 2, price: 3.50 },
-      ],
-    },
-    {
-      id: "ORD-2024-004",
-      date: "2024-01-25",
-      status: "pending",
-      total: 67.80,
-      items: 5,
-      deliveryDate: "2024-01-28",
-      trackingNumber: null,
-      products: [
-        { name: "Purple Eggplant", quantity: 3, price: 4.99 },
-        { name: "Yellow Bell Peppers", quantity: 2, price: 7.50 },
-      ],
-    },
-  ];
+  const { user } = useAuth();
+  const { orders, loading, updateOrderStatus } = useOrders();
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -93,6 +42,34 @@ const Orders = () => {
     }
   };
 
+  const formatOrderId = (id: string) => {
+    return `ORD-${id.slice(-8).toUpperCase()}`;
+  };
+
+  const getEstimatedDeliveryDate = (orderDate: string, status: string) => {
+    const date = new Date(orderDate);
+    const deliveryDays = status === 'pending' ? 5 : status === 'processing' ? 3 : 1;
+    date.setDate(date.getDate() + deliveryDays);
+    return date.toLocaleDateString();
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Please sign in to view your orders</h1>
+            <Button asChild>
+              <Link to="/signin">Sign In</Link>
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -105,7 +82,7 @@ const Orders = () => {
               My Orders
             </h1>
             <p className="text-muted-foreground">
-              Track and manage your orders ({orders.length} orders)
+              {loading ? 'Loading...' : `Track and manage your orders (${orders.length} orders)`}
             </p>
           </div>
 
@@ -127,9 +104,9 @@ const Orders = () => {
                   <CardHeader>
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div>
-                        <CardTitle className="text-lg">{order.id}</CardTitle>
+                        <CardTitle className="text-lg">{formatOrderId(order.id)}</CardTitle>
                         <p className="text-sm text-muted-foreground">
-                          Placed on {new Date(order.date).toLocaleDateString()}
+                          Placed on {new Date(order.created_at).toLocaleDateString()}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -148,15 +125,15 @@ const Orders = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
                       <div>
                         <h4 className="font-semibold mb-2">Order Total</h4>
-                        <p className="text-2xl font-bold text-primary">${order.total.toFixed(2)}</p>
-                        <p className="text-sm text-muted-foreground">{order.items} items</p>
+                        <p className="text-2xl font-bold text-primary">${order.total_amount.toFixed(2)}</p>
+                        <p className="text-sm text-muted-foreground">{order.order_items?.length || 0} items</p>
                       </div>
                       <div>
                         <h4 className="font-semibold mb-2">Delivery Date</h4>
-                        <p className="text-foreground">{new Date(order.deliveryDate).toLocaleDateString()}</p>
-                        {order.trackingNumber && (
+                        <p className="text-foreground">{getEstimatedDeliveryDate(order.created_at, order.status)}</p>
+                        {order.status === 'shipped' && (
                           <p className="text-sm text-muted-foreground">
-                            Tracking: {order.trackingNumber}
+                            Tracking: TRK{order.id.slice(-8).toUpperCase()}
                           </p>
                         )}
                       </div>
@@ -183,23 +160,23 @@ const Orders = () => {
                     <div>
                       <h4 className="font-semibold mb-3">Items in this order</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {order.products.slice(0, 4).map((product, index) => (
+                        {(order.order_items || []).slice(0, 4).map((item, index) => (
                           <div key={index} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                            <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center">
-                              <Package className="h-6 w-6 text-muted-foreground" />
+                            <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center text-2xl">
+                              {item.product?.image_url || '📦'}
                             </div>
                             <div className="flex-1">
-                              <p className="font-medium text-sm">{product.name}</p>
+                              <p className="font-medium text-sm">{item.product?.name || 'Product'}</p>
                               <p className="text-sm text-muted-foreground">
-                                Qty: {product.quantity} × ${product.price.toFixed(2)}
+                                Qty: {item.quantity} × ${item.price.toFixed(2)}
                               </p>
                             </div>
                           </div>
                         ))}
-                        {order.products.length > 4 && (
+                        {(order.order_items?.length || 0) > 4 && (
                           <div className="flex items-center justify-center p-3 bg-muted/30 rounded-lg">
                             <p className="text-sm text-muted-foreground">
-                              +{order.products.length - 4} more items
+                              +{(order.order_items?.length || 0) - 4} more items
                             </p>
                           </div>
                         )}

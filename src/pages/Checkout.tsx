@@ -8,38 +8,197 @@ import { Checkbox } from "@/components/ui/checkbox";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { CreditCard, Truck, Shield, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useCart } from "@/hooks/useCart";
+import { useOrders } from "@/hooks/useOrders";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 const Checkout = () => {
-  const cartItems = [
-    {
-      id: 1,
-      name: "Organic Heirloom Tomatoes",
-      price: 8.99,
-      quantity: 2,
-      image: "/placeholder.svg",
-    },
-    {
-      id: 2,
-      name: "Fresh Baby Spinach",
-      price: 4.50,
-      quantity: 3,
-      image: "/placeholder.svg",
-    },
-    {
-      id: 3,
-      name: "Sweet Corn Bundle",
-      price: 12.99,
-      quantity: 1,
-      image: "/placeholder.svg",
-    },
-  ];
+  const { user } = useAuth();
+  const { cartItems, getTotalPrice } = useCart();
+  const { createOrder } = useOrders();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [deliveryOption, setDeliveryOption] = useState("standard");
+  const [paymentMethod, setPaymentMethod] = useState("card");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  
+  const [shippingData, setShippingData] = useState({
+    email: '',
+    phone: '',
+    firstName: '',
+    lastName: '',
+    address: '',
+    apartment: '',
+    city: '',
+    state: '',
+    zip: ''
+  });
+  
+  const [paymentData, setPaymentData] = useState({
+    cardNumber: '',
+    expiry: '',
+    cvv: '',
+    cardName: ''
+  });
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = getTotalPrice();
   const shipping = subtotal > 50 ? 0 : 5.99;
   const tax = subtotal * 0.08;
   const total = subtotal + shipping + tax;
 
+  const handleInputChange = (field: string, value: string) => {
+    if (field.startsWith('payment.')) {
+      const paymentField = field.replace('payment.', '');
+      setPaymentData(prev => ({ ...prev, [paymentField]: value }));
+    } else {
+      setShippingData(prev => ({ ...prev, [field]: value }));
+    }
+  };
+
+  const validateForm = () => {
+    const requiredFields = ['email', 'phone', 'firstName', 'lastName', 'address', 'city', 'state', 'zip'];
+    const missingFields = requiredFields.filter(field => !shippingData[field as keyof typeof shippingData]);
+    
+    if (missingFields.length > 0) {
+      toast({
+        title: 'Missing Information',
+        description: 'Please fill in all required shipping information',
+        variant: 'destructive'
+      });
+      return false;
+    }
+    
+    if (paymentMethod === 'card') {
+      const requiredPaymentFields = ['cardNumber', 'expiry', 'cvv', 'cardName'];
+      const missingPaymentFields = requiredPaymentFields.filter(field => !paymentData[field as keyof typeof paymentData]);
+      
+      if (missingPaymentFields.length > 0) {
+        toast({
+          title: 'Missing Payment Information',
+          description: 'Please fill in all payment details',
+          variant: 'destructive'
+        });
+        return false;
+      }
+    }
+    
+    if (!termsAccepted) {
+      toast({
+        title: 'Terms Required',
+        description: 'Please accept the terms of service to continue',
+        variant: 'destructive'
+      });
+      return false;
+    }
+    
+    return true;
+  };
+
+  const handleCompleteOrder = async () => {
+    if (!user) {
+      toast({
+        title: 'Sign in required',
+        description: 'Please sign in to complete your order',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (cartItems.length === 0) {
+      toast({
+        title: 'Empty cart',
+        description: 'Your cart is empty',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const shippingAddress = {
+        firstName: shippingData.firstName,
+        lastName: shippingData.lastName,
+        address: shippingData.address,
+        apartment: shippingData.apartment,
+        city: shippingData.city,
+        state: shippingData.state,
+        zip: shippingData.zip,
+        phone: shippingData.phone,
+        email: shippingData.email
+      };
+
+      const orderItems = cartItems.map(item => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+        price: item.product.price
+      }));
+
+      const order = await createOrder({
+        total_amount: total,
+        shipping_address: shippingAddress,
+        payment_method: paymentMethod,
+        cart_items: orderItems
+      });
+
+      toast({
+        title: 'Order placed successfully!',
+        description: `Your order #${order.id.slice(-8).toUpperCase()} has been placed`,
+      });
+
+      navigate('/orders');
+    } catch (error) {
+      console.error('Error creating order:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to place order. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Please sign in to checkout</h1>
+            <Button asChild>
+              <Link to="/signin">Sign In</Link>
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (cartItems.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Your cart is empty</h1>
+            <Button asChild>
+              <Link to="/marketplace">Continue Shopping</Link>
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -68,11 +227,23 @@ const Checkout = () => {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email Address</Label>
-                    <Input id="email" type="email" placeholder="john@example.com" />
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      placeholder="john@example.com"
+                      value={shippingData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone Number</Label>
-                    <Input id="phone" type="tel" placeholder="+1 (555) 123-4567" />
+                    <Input 
+                      id="phone" 
+                      type="tel" 
+                      placeholder="+1 (555) 123-4567"
+                      value={shippingData.phone}
+                      onChange={(e) => handleInputChange('phone', e.target.value)}
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -86,33 +257,68 @@ const Checkout = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="firstName">First Name</Label>
-                      <Input id="firstName" placeholder="John" />
+                      <Input 
+                        id="firstName" 
+                        placeholder="John"
+                        value={shippingData.firstName}
+                        onChange={(e) => handleInputChange('firstName', e.target.value)}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="lastName">Last Name</Label>
-                      <Input id="lastName" placeholder="Doe" />
+                      <Input 
+                        id="lastName" 
+                        placeholder="Doe"
+                        value={shippingData.lastName}
+                        onChange={(e) => handleInputChange('lastName', e.target.value)}
+                      />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="address">Address</Label>
-                    <Input id="address" placeholder="123 Main Street" />
+                    <Input 
+                      id="address" 
+                      placeholder="123 Main Street"
+                      value={shippingData.address}
+                      onChange={(e) => handleInputChange('address', e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="apartment">Apartment, suite, etc. (optional)</Label>
-                    <Input id="apartment" placeholder="Apt 2B" />
+                    <Input 
+                      id="apartment" 
+                      placeholder="Apt 2B"
+                      value={shippingData.apartment}
+                      onChange={(e) => handleInputChange('apartment', e.target.value)}
+                    />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="city">City</Label>
-                      <Input id="city" placeholder="San Francisco" />
+                      <Input 
+                        id="city" 
+                        placeholder="San Francisco"
+                        value={shippingData.city}
+                        onChange={(e) => handleInputChange('city', e.target.value)}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="state">State</Label>
-                      <Input id="state" placeholder="CA" />
+                      <Input 
+                        id="state" 
+                        placeholder="CA"
+                        value={shippingData.state}
+                        onChange={(e) => handleInputChange('state', e.target.value)}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="zip">ZIP Code</Label>
-                      <Input id="zip" placeholder="94102" />
+                      <Input 
+                        id="zip" 
+                        placeholder="94102"
+                        value={shippingData.zip}
+                        onChange={(e) => handleInputChange('zip', e.target.value)}
+                      />
                     </div>
                   </div>
                 </CardContent>
@@ -127,7 +333,7 @@ const Checkout = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <RadioGroup defaultValue="standard" className="space-y-4">
+                  <RadioGroup value={deliveryOption} onValueChange={setDeliveryOption} className="space-y-4">
                     <div className="flex items-center space-x-2 p-4 border rounded-lg">
                       <RadioGroupItem value="standard" id="standard" />
                       <Label htmlFor="standard" className="flex-1 cursor-pointer">
@@ -170,7 +376,7 @@ const Checkout = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <RadioGroup defaultValue="card" className="space-y-4">
+                  <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-4">
                     <div className="flex items-center space-x-2 p-4 border rounded-lg">
                       <RadioGroupItem value="card" id="card" />
                       <Label htmlFor="card" className="flex-1 cursor-pointer">
@@ -188,21 +394,41 @@ const Checkout = () => {
                   <div className="space-y-4 mt-4">
                     <div className="space-y-2">
                       <Label htmlFor="cardNumber">Card Number</Label>
-                      <Input id="cardNumber" placeholder="1234 5678 9012 3456" />
+                      <Input 
+                        id="cardNumber" 
+                        placeholder="1234 5678 9012 3456"
+                        value={paymentData.cardNumber}
+                        onChange={(e) => handleInputChange('payment.cardNumber', e.target.value)}
+                      />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="expiry">Expiry Date</Label>
-                        <Input id="expiry" placeholder="MM/YY" />
+                        <Input 
+                          id="expiry" 
+                          placeholder="MM/YY"
+                          value={paymentData.expiry}
+                          onChange={(e) => handleInputChange('payment.expiry', e.target.value)}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="cvv">CVV</Label>
-                        <Input id="cvv" placeholder="123" />
+                        <Input 
+                          id="cvv" 
+                          placeholder="123"
+                          value={paymentData.cvv}
+                          onChange={(e) => handleInputChange('payment.cvv', e.target.value)}
+                        />
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="cardName">Name on Card</Label>
-                      <Input id="cardName" placeholder="John Doe" />
+                      <Input 
+                        id="cardName" 
+                        placeholder="John Doe"
+                        value={paymentData.cardName}
+                        onChange={(e) => handleInputChange('payment.cardName', e.target.value)}
+                      />
                     </div>
                   </div>
                 </CardContent>
@@ -219,16 +445,16 @@ const Checkout = () => {
                   {cartItems.map((item) => (
                     <div key={item.id} className="flex gap-3">
                       <img
-                        src={item.image}
-                        alt={item.name}
+                        src={item.product.image_url || "/placeholder.svg"}
+                        alt={item.product.name}
                         className="w-16 h-16 object-cover rounded-lg"
                       />
                       <div className="flex-1">
-                        <h4 className="font-medium text-sm">{item.name}</h4>
+                        <h4 className="font-medium text-sm">{item.product.name}</h4>
                         <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
                       </div>
                       <p className="font-medium text-sm">
-                        ${(item.price * item.quantity).toFixed(2)}
+                        ${(item.product.price * item.quantity).toFixed(2)}
                       </p>
                     </div>
                   ))}
@@ -258,15 +484,20 @@ const Checkout = () => {
               </Card>
 
               <div className="flex items-center space-x-2">
-                <Checkbox id="terms" />
+                <Checkbox id="terms" checked={termsAccepted} onCheckedChange={setTermsAccepted} />
                 <Label htmlFor="terms" className="text-sm">
                   I agree to the <Link to="/terms" className="text-primary hover:underline">Terms of Service</Link> and <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
                 </Label>
               </div>
 
-              <Button size="lg" className="w-full gap-2">
+              <Button 
+                size="lg" 
+                className="w-full gap-2"
+                onClick={handleCompleteOrder}
+                disabled={loading || !termsAccepted}
+              >
                 <Shield className="h-4 w-4" />
-                Complete Order - ${total.toFixed(2)}
+                {loading ? 'Processing...' : `Complete Order - $${total.toFixed(2)}`}
               </Button>
 
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
